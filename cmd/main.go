@@ -8,6 +8,7 @@ import (
 	"github.com/gictorbit/ice/internal/todo/usecase"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 )
@@ -23,8 +24,12 @@ func main() {
 
 	todoRepo := mysql.NewTodoMySQL(db)
 	stream := redisinfra.NewStreamPublisher(rdb, "todos")
-	uc := usecase.NewTodoUseCase(todoRepo, stream)
-	h := delivery.NewTodoHandler(uc)
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatal(err)
+	}
+	uc := usecase.NewTodoUseCase(todoRepo, stream, logger)
+	h := delivery.NewTodoHandler(uc, logger)
 
 	http.HandleFunc("/todo", h.CreateTodo)
 	log.Println("Server started at :8080")

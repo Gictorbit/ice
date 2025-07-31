@@ -5,15 +5,20 @@ import (
 	"encoding/json"
 	"github.com/gictorbit/ice/internal/todo/domain"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"net/http"
 )
 
 type TodoHandler struct {
-	uc domain.TodoUseCase
+	uc     domain.TodoUseCase
+	logger *zap.Logger
 }
 
-func NewTodoHandler(uc domain.TodoUseCase) *TodoHandler {
-	return &TodoHandler{uc: uc}
+func NewTodoHandler(uc domain.TodoUseCase, logger *zap.Logger) *TodoHandler {
+	return &TodoHandler{
+		uc:     uc,
+		logger: logger,
+	}
 }
 
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +36,11 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	todo.ID = uuid.New()
 
 	if err := h.uc.CreateTodo(context.Background(), todo); err != nil {
-		http.Error(w, "failed to create todo: "+err.Error(), http.StatusInternalServerError)
+		h.logger.Error("failed to create todo",
+			zap.Error(err),
+			zap.String("todoId", todo.ID.String()),
+		)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 

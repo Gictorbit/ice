@@ -1,6 +1,6 @@
 # Run the whole application stack with Docker Compose
 run:
-	docker-compose up --build
+	docker compose up --build
 
 # Run unit tests
 test:
