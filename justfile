@@ -21,6 +21,6 @@ docker:
 # Clean up compiled binaries
 clean:
 	rm -rf bin/
-
+# generate go commands and mocks
 generate:
 	go generate ./...
