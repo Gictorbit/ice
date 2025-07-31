@@ -21,3 +21,6 @@ docker:
 # Clean up compiled binaries
 clean:
 	rm -rf bin/
+
+generate:
+	go generate ./...
