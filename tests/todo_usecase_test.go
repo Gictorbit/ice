@@ -8,6 +8,8 @@ import (
 	mock_domain "github.com/gictorbit/ice/tests/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"gotest.tools/v3/assert"
 	"testing"
 	"time"
 )
@@ -20,12 +22,12 @@ func TestTodoUseCase_Create(t *testing.T) {
 		todo          *domain.TodoItem
 		mockRepo      func() domain.TodoRepository
 		mockPublisher func() domain.StreamPublisher
-		wantErr       bool
+		wantErr       error
 	}{
 		"success": {
 			todo: &domain.TodoItem{
 				ID:          uuid.New(),
-				Description: "",
+				Description: "success todo",
 				DueDate:     time.Now().Add(24 * time.Hour),
 			},
 			mockRepo: func() domain.TodoRepository {
@@ -38,12 +40,12 @@ func TestTodoUseCase_Create(t *testing.T) {
 				m.EXPECT().Publish(gomock.Any(), gomock.Any()).Return(nil)
 				return m
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		"repo error": {
 			todo: &domain.TodoItem{
 				ID:          uuid.New(),
-				Description: "",
+				Description: "repo fail",
 				DueDate:     time.Now().Add(24 * time.Hour),
 			},
 			mockRepo: func() domain.TodoRepository {
@@ -54,12 +56,12 @@ func TestTodoUseCase_Create(t *testing.T) {
 			mockPublisher: func() domain.StreamPublisher {
 				return mock_domain.NewMockStreamPublisher(ctrl)
 			},
-			wantErr: true,
+			wantErr: errors.New("db error"),
 		},
 		"publisher error": {
 			todo: &domain.TodoItem{
 				ID:          uuid.New(),
-				Description: "",
+				Description: "publish fail",
 				DueDate:     time.Now().Add(24 * time.Hour),
 			},
 			mockRepo: func() domain.TodoRepository {
@@ -72,16 +74,23 @@ func TestTodoUseCase_Create(t *testing.T) {
 				m.EXPECT().Publish(gomock.Any(), gomock.Any()).Return(errors.New("redis fail"))
 				return m
 			},
-			wantErr: true,
+			wantErr: errors.New("redis fail"),
 		},
 	}
 
-	for name, tc := range tests {
+	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			uc := usecase.NewTodoUseCase(tc.mockRepo(), tc.mockPublisher())
-			err := uc.CreateTodo(context.Background(), tc.todo)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("Create() error = %v, wantErr %v", err, tc.wantErr)
+
+			logger, err := zap.NewProduction()
+			assert.NilError(t, err)
+
+			uc := usecase.NewTodoUseCase(test.mockRepo(), test.mockPublisher(), logger)
+
+			err = uc.CreateTodo(context.Background(), test.todo)
+			if test.wantErr == nil {
+				assert.NilError(t, err)
+			} else {
+				assert.Error(t, err, test.wantErr.Error())
 			}
 		})
 	}
