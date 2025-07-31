@@ -19,14 +19,22 @@ func NewTodoHandler(uc domain.TodoUseCase) *TodoHandler {
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	todo := &domain.TodoItem{}
 	if err := json.NewDecoder(r.Body).Decode(todo); err != nil {
+		http.Error(w, "invalid request payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := todo.Validate(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	todo.ID = uuid.NewString()
+
+	todo.ID = uuid.New()
+
 	if err := h.uc.CreateTodo(context.Background(), todo); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to create todo: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(todo)
 }
